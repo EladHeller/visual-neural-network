@@ -267,6 +267,33 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
+            <h2 className="text-xl font-bold mb-4">איך זה עובד?</h2>
+            <div className="space-y-3 text-sm text-slate-600 leading-relaxed text-right">
+              <p>
+                <strong>1. מעבר קדימה (Feedforward):</strong> הציור שלך הופך ל-{INPUT_SIZE} פיקסלים. 
+                אלו מפעילים את שכבת הקלט (Input Layer). האותות עוברים דרך המשקולות (Weights), 
+                מסוכמים ועוברים טרנספורמציה בכל נוירון (Neuron).
+              </p>
+              <p>
+                <strong>2. פעפוע לאחור (Backpropagation):</strong> כשהרשת מקבלת תיוג, היא בודקת כמה היא טעתה. 
+                היא חוזרת אחורה ומבינה אילו משקולות גרמו לטעות.
+              </p>
+              <p>
+                <strong>3. עדכון משקולות:</strong> הרשת משנה מעט כל משקולת כדי להקטין את הטעות בפעם הבאה. 
+                אחרי {iterations} איטרציות, היא כבר יודעת לזהות את האותיות שלך!
+              </p>
+              <div className="pt-3 border-t border-slate-100">
+                <p className="font-bold text-slate-800 mb-1">למה הרשת "חיה" גם כשהקנבס ריק?</p>
+                <p>
+                  גם כשלא ציירת כלום (קלט 0), הרשת עדיין מציגה אחוזים. זה קורה בגלל ה-<strong>Bias (הטיה)</strong>: 
+                  לכל נוירון יש "דעה מוקדמת" אקראית שנוספת לחישוב. בנוסף, פונקציית ה-<strong>Sigmoid</strong> תמיד 
+                  מחזירה ערך בין 0 ל-1 (למשל, 0.5 עבור קלט של 0), כך שהרשת תמיד "מנחשת" משהו, גם אם זה ניחוש אקראי לחלוטין.
+                </p>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Right Column: Visualization */}
@@ -307,33 +334,6 @@ const App: React.FC = () => {
                   אין דגימות עדיין. הגיע הזמן לצייר!
                 </p>
               )}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
-            <h2 className="text-xl font-bold mb-4">איך זה עובד?</h2>
-            <div className="space-y-3 text-sm text-slate-600 leading-relaxed text-right">
-              <p>
-                <strong>1. מעבר קדימה (Feedforward):</strong> הציור שלך הופך ל-{INPUT_SIZE} פיקסלים. 
-                אלו מפעילים את שכבת הקלט (Input Layer). האותות עוברים דרך המשקולות (Weights), 
-                מסוכמים ועוברים טרנספורמציה בכל נוירון (Neuron).
-              </p>
-              <p>
-                <strong>2. פעפוע לאחור (Backpropagation):</strong> כשהרשת מקבלת תיוג, היא בודקת כמה היא טעתה. 
-                היא חוזרת אחורה ומבינה אילו משקולות גרמו לטעות.
-              </p>
-              <p>
-                <strong>3. עדכון משקולות:</strong> הרשת משנה מעט כל משקולת כדי להקטין את הטעות בפעם הבאה. 
-                אחרי {iterations} איטרציות, היא כבר יודעת לזהות את האותיות שלך!
-              </p>
-              <div className="pt-3 border-t border-slate-100">
-                <p className="font-bold text-slate-800 mb-1">למה הרשת "חיה" גם כשהקנבס ריק?</p>
-                <p>
-                  גם כשלא ציירת כלום (קלט 0), הרשת עדיין מציגה אחוזים. זה קורה בגלל ה-<strong>Bias (הטיה)</strong>: 
-                  לכל נוירון יש "דעה מוקדמת" אקראית שנוספת לחישוב. בנוסף, פונקציית ה-<strong>Sigmoid</strong> תמיד 
-                  מחזירה ערך בין 0 ל-1 (למשל, 0.5 עבור קלט של 0), כך שהרשת תמיד "מנחשת" משהו, גם אם זה ניחוש אקראי לחלוטין.
-                </p>
-              </div>
             </div>
           </div>
         </section>

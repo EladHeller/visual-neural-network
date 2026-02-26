@@ -23,6 +23,9 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridS
   }, [size]);
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e) {
+      e.preventDefault();
+    }
     setIsDrawing(true);
     draw(e);
   };
@@ -34,6 +37,9 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridS
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing) return;
+    if ('touches' in e) {
+      e.preventDefault();
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -91,7 +97,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridS
         ref={canvasRef}
         width={size}
         height={size}
-        className="border-2 border-gray-400 cursor-crosshair rounded shadow-inner"
+        className="border-2 border-gray-400 cursor-crosshair rounded shadow-inner touch-none"
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
