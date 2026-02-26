@@ -182,6 +182,29 @@ const App: React.FC = () => {
               <DrawingCanvas onDraw={handleDraw} gridSize={GRID_SIZE} />
               
               <div className="flex flex-col gap-3 w-full max-w-[200px]">
+                <div className="mb-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-xs font-bold text-slate-500 mb-2">תוצאות זיהוי:</p>
+                  <div className="space-y-1">
+                    {labels.map((label, idx) => {
+                      const activation = nn.activations[nn.layers.length - 1]?.[idx] || 0;
+                      return (
+                        <div key={`result-${idx}`} className="flex items-center justify-between text-sm">
+                          <span className="font-bold">{label}:</span>
+                          <div className="flex items-center gap-2 flex-1 mx-2">
+                            <div className="h-1.5 bg-slate-200 rounded-full flex-1 overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-500 transition-all duration-300" 
+                                style={{ width: `${activation * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono w-8 text-left">{(activation * 100).toFixed(0)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <p className="text-sm font-medium text-slate-500">איסוף דוגמאות:</p>
                 {labels.map((label, idx) => (
                   <div key={`${label}-${idx}`} className="flex gap-1">
@@ -298,7 +321,11 @@ const App: React.FC = () => {
 
         {/* Right Column: Visualization */}
         <section className="space-y-6">
-          <NetworkVisualizer nn={nn} labels={labels} />
+          <NetworkVisualizer 
+            nn={nn} 
+            labels={labels} 
+            onOpenDetails={() => setIsDetailedViewOpen(true)}
+          />
           
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
