@@ -1,73 +1,56 @@
-# React + TypeScript + Vite
+# Visual Neural Network (ANN Visualizer)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An interactive, browser-based neural network visualizer that allows users to draw, label, and train a real artificial neural network (ANN) in real-time.
 
-Currently, two official plugins are available:
+[**Live Demo**](https://eladheller.github.io/visual-neural-network/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+- **Interactive Drawing Canvas**: Draw characters or shapes on a 10x10 grid.
+- **Real-time Training**: Train the network using Backpropagation and Gradient Descent directly in the browser.
+- **Live Visualization**: See the neural network's architecture, weights (line thickness/color), and activations (node brightness) update as it learns.
+- **Customizable Labels**: Add up to 5 custom labels to teach the network different patterns.
+- **Persistence**: Your training data, labels, and learned weights are automatically saved to `localStorage`.
+- **Detailed Architecture View**: Dive deep into the specific numerical values of every weight and bias in the network.
+- **Hebrew UI**: Designed with a right-to-left (RTL) interface for Hebrew speakers.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- **Framework**: [React 19](https://react.dev/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Bundler**: [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **Deployment**: GitHub Pages
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## How it Works
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. **Feedforward**: Your drawing is converted into a 100-pixel input vector. These signals pass through the hidden layer, are multiplied by weights, and transformed by activation functions (Sigmoid) to produce a prediction at the output layer.
+2. **Backpropagation**: When you label a drawing, the network calculates the error (Mean Squared Error) between its prediction and the target. It then propagates this error backward to determine how much each weight contributed to the mistake.
+3. **Weight Update**: The network slightly adjusts every weight to minimize the error for the next iteration. Over hundreds of iterations, it "learns" to recognize your specific drawing style.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Local Development
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/EladHeller/visual-neural-network.git
+   cd visual-neural-network
+   ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+3. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+4. **Build for production**:
+   ```bash
+   npm run build
+   ```
+
+## License
+
+MIT
