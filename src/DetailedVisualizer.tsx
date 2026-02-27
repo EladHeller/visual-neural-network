@@ -1,13 +1,17 @@
 
 import React from 'react';
 import { NeuralNetwork } from './nn';
+import { translations } from './translations';
+import type { Language } from './translations';
 
 interface DetailedVisualizerProps {
   nn: NeuralNetwork;
   labels: string[];
+  lang?: Language;
 }
 
-const DetailedVisualizer: React.FC<DetailedVisualizerProps> = ({ nn, labels }) => {
+const DetailedVisualizer: React.FC<DetailedVisualizerProps> = ({ nn, labels, lang = 'en' }) => {
+  const t = translations[lang];
   const width = 1200;
   const height = 800;
   const paddingX = 100;
@@ -84,7 +88,7 @@ const DetailedVisualizer: React.FC<DetailedVisualizerProps> = ({ nn, labels }) =
                     className="text-[10px] fill-slate-400 font-bold"
                     dominantBaseline="middle"
                   >
-                    {nIdx === 0 ? 'סכומי שורות' : 'סכומי עמודות'}
+                    {nIdx === 0 ? t.rowSums : t.colSums}
                   </text>
                 )}
                 {/* Activation values */}
@@ -93,7 +97,6 @@ const DetailedVisualizer: React.FC<DetailedVisualizerProps> = ({ nn, labels }) =
                     x={pos.x} y={pos.y + size + 15} 
                     className="text-[10px] fill-white font-bold"
                     textAnchor="middle"
-                    style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}
                   >
                     {lIdx === nn.layers.length - 1 
                       ? `${labels[nIdx]}: ${(activation * 100).toFixed(1)}%` 

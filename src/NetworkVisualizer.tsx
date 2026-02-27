@@ -1,14 +1,18 @@
 
 import React from 'react';
 import { NeuralNetwork } from './nn';
+import { translations } from './translations';
+import type { Language } from './translations';
 
 interface NetworkVisualizerProps {
   nn: NeuralNetwork;
   labels: string[];
   onOpenDetails?: () => void;
+  lang?: Language;
 }
 
-const NetworkVisualizer: React.FC<NetworkVisualizerProps> = ({ nn, labels, onOpenDetails }) => {
+const NetworkVisualizer: React.FC<NetworkVisualizerProps> = ({ nn, labels, onOpenDetails, lang = 'en' }) => {
+  const t = translations[lang];
   const width = 800;
   const height = 450;
   const paddingX = 50;
@@ -31,7 +35,7 @@ const NetworkVisualizer: React.FC<NetworkVisualizerProps> = ({ nn, labels, onOpe
           <button 
             onClick={onOpenDetails}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-500 hover:text-slate-800"
-            title="תצוגה מלאה"
+            title={t.fullView}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 3 21 3 21 9"></polyline>
@@ -41,7 +45,9 @@ const NetworkVisualizer: React.FC<NetworkVisualizerProps> = ({ nn, labels, onOpe
             </svg>
           </button>
         )}
-        <h3 className="text-lg font-bold text-center text-gray-800 flex-1" dir="rtl">מבנה רשת הנוירונים</h3>
+        <h3 className="text-lg font-bold text-center text-gray-800 flex-1" dir={lang === 'he' ? 'rtl' : 'ltr'}>
+          {lang === 'he' ? t.networkStructure : t.networkStructure}
+        </h3>
         {onOpenDetails && <div className="w-9" />} {/* Spacer for centering header */}
       </div>
       <div className="w-full">
@@ -95,16 +101,18 @@ const NetworkVisualizer: React.FC<NetworkVisualizerProps> = ({ nn, labels, onOpe
                       className="text-[10px] fill-slate-400 font-bold"
                       dominantBaseline="middle"
                     >
-                      {nIdx === 0 ? 'סכומי שורות' : 'סכומי עמודות'}
+                      {nIdx === 0 ? t.rowSums : t.colSums}
                     </text>
                   )}
                   {lIdx === nn.layers.length - 1 && (
                     <text 
                       x={pos.x + 18} y={pos.y + 5} 
                       className="text-sm font-bold fill-slate-700"
-                      style={{ direction: 'ltr', unicodeBidi: 'bidi-override' }}
+                      textAnchor="start"
                     >
-                      {`${labels[nIdx]}: ${(activation * 100).toFixed(1)}%`}
+                      {lang === 'he' 
+                        ? `${labels[nIdx]}: ${(activation * 100).toFixed(1)}%`
+                        : `${labels[nIdx]}: ${(activation * 100).toFixed(1)}%`}
                     </text>
                   )}
                 </g>

@@ -6,7 +6,7 @@ An interactive, browser-based neural network visualizer that allows users to dra
 
 ## Features
 
-- **Interactive Drawing Canvas**: Draw characters or shapes on a high-resolution 50x50 grid.
+- **Interactive Drawing Canvas**: Draw patterns or shapes on a high-resolution 50x50 grid.
 - **Feature Extraction**: Instead of raw pixels, the network uses the vector sum of each row and column (100 inputs) for better shape recognition and translation invariance.
 - **Real-time Training**: Train the network using Backpropagation and Gradient Descent directly in the browser.
 - **Live Visualization**: See the neural network's architecture, weights (line thickness/color), and activations (node brightness) update as it learns.

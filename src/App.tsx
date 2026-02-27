@@ -4,6 +4,8 @@ import DrawingCanvas from './DrawingCanvas';
 import NetworkVisualizer from './NetworkVisualizer';
 import DetailedVisualizer from './DetailedVisualizer';
 import Modal from './Modal';
+import { translations } from './translations';
+import type { Language } from './translations';
 
 const GRID_SIZE = 50;
 const INPUT_SIZE = GRID_SIZE * 2; // 50 row sums + 50 col sums
@@ -65,8 +67,8 @@ const LossHistory: React.FC<{ history: number[] }> = ({ history }) => {
   const path = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
 
   return (
-    <div className="mt-2">
-      <svg width={width} height={height} className="overflow-visible">
+    <div className="mt-2 w-full max-w-[200px]">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
         <path d={path} fill="none" stroke="#2563eb" strokeWidth="2" />
       </svg>
     </div>
@@ -74,6 +76,13 @@ const LossHistory: React.FC<{ history: number[] }> = ({ history }) => {
 };
 
 const App: React.FC = () => {
+  const [lang, setLang] = useState<Language>(() => {
+    const saved = localStorage.getItem('ann_lang');
+    if (saved === 'he' || saved === 'en') return saved;
+    return navigator.language.startsWith('he') ? 'he' : 'en';
+  });
+  const t = translations[lang];
+
   const [labels, setLabels] = useState<string[]>(() => {
     const saved = localStorage.getItem('ann_labels');
     return saved ? JSON.parse(saved) : ['א', 'ב', 'ט'];
@@ -118,6 +127,10 @@ const App: React.FC = () => {
   const [isDetailedViewOpen, setIsDetailedViewOpen] = useState(false);
 
   // Persistence: Save on change
+  useEffect(() => {
+    localStorage.setItem('ann_lang', lang);
+  }, [lang]);
+
   useEffect(() => {
     localStorage.setItem('ann_labels', JSON.stringify(labels));
   }, [labels]);
@@ -194,15 +207,20 @@ const App: React.FC = () => {
           localStorage.setItem('ann_iterations', state.iterations.toString());
           localStorage.setItem('ann_loss', state.loss.toString());
           nn.feedForward(getFeatures(currentInput));
-          alert('המוח נטען בהצלחה!');
+          alert(t.brainLoaded);
         }
       } catch (err) {
         console.error(err);
-        alert('שגיאה בטעינת הקובץ.');
+        alert(t.errorLoading);
       }
     };
     reader.readAsText(file);
   };
+
+  const samplesPerLabel = labels.map((_, idx) => 
+    trainingData.filter(d => d.label === idx).length
+  );
+  const canTrain = trainingData.length > 0 && samplesPerLabel.every(count => count >= 3);
 
   const removeSample = (idx: number) => {
     const newData = trainingData.filter((_, i) => i !== idx);
@@ -306,10 +324,26 @@ const App: React.FC = () => {
   }, [isTraining, trainingData, trainOnce]);
 
   return (
-    <div className="min-h-screen bg-slate-100 p-8 font-sans text-slate-900" dir="rtl">
-      <header className="max-w-6xl mx-auto mb-12 text-center">
-        <h1 className="text-4xl font-extrabold mb-4 text-slate-800">המחשת רשתות נוירונים</h1>
-        <p className="text-xl text-slate-600">אמן רשת נוירונים אמיתית לזיהוי אותיות וצורות.</p>
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans text-slate-900" dir={lang === 'he' ? 'rtl' : 'ltr'}>
+      <header className="max-w-6xl mx-auto mb-8 md:mb-12 text-center relative">
+        <div className="flex justify-end mb-4">
+          <div className="bg-white p-1 rounded-lg shadow-md border border-slate-200 inline-flex">
+            <button
+              onClick={() => setLang('he')}
+              className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${lang === 'he' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              עברית
+            </button>
+            <button
+              onClick={() => setLang('en')}
+              className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${lang === 'en' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              English
+            </button>
+          </div>
+        </div>
+        <h1 className="text-3xl md:text-4xl font-extrabold mb-4 text-slate-800">{t.title}</h1>
+        <p className="text-lg md:text-xl text-slate-600">{t.subtitle}</p>
       </header>
 
       <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -319,17 +353,16 @@ const App: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <span className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm">1</span>
-                צייר ותייג
+                {t.drawAndTag}
               </h2>
               <div className="flex flex-col items-end gap-1">
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    maxLength={1}
                     value={newLabelName}
                     disabled={labels.length >= 10}
                     onChange={(e) => setNewLabelName(e.target.value)}
-                    placeholder={labels.length >= 10 ? "מלא" : "תו חדש"}
+                    placeholder={labels.length >= 10 ? t.full : t.newName}
                     className="w-24 px-3 py-1 border rounded bg-slate-50 text-slate-800 disabled:bg-slate-200 disabled:cursor-not-allowed"
                   />
                   <button
@@ -337,21 +370,21 @@ const App: React.FC = () => {
                     disabled={labels.length >= 10 || !newLabelName}
                     className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50 font-bold"
                   >
-                    + הוסף
+                    {t.add}
                   </button>
                 </div>
                 {labels.length >= 10 && (
-                  <span className="text-[10px] text-amber-600 font-bold">הגעת למקסימום! יותר מ-10 תוים זה "כבד" מדי למודל הקטן הזה.</span>
+                  <span className="text-[10px] text-amber-600 font-bold">{t.maxReached}</span>
                 )}
               </div>
             </div>
             
             <div className="flex flex-col md:flex-row gap-8 items-center">
-              <DrawingCanvas onDraw={handleDraw} gridSize={GRID_SIZE} />
+              <DrawingCanvas onDraw={handleDraw} gridSize={GRID_SIZE} lang={lang} />
               
               <div className="flex flex-col gap-3 w-full max-w-[200px]">
                 <div className="mb-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-xs font-bold text-slate-500 mb-2">תוצאות זיהוי:</p>
+                  <p className="text-xs font-bold text-slate-500 mb-2">{t.recognitionResults}</p>
                   <div className="space-y-1">
                     {labels.map((label, idx) => {
                       const activation = nn.activations[nn.layers.length - 1]?.[idx] || 0;
@@ -373,26 +406,34 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <p className="text-sm font-medium text-slate-500">איסוף דוגמאות:</p>
+                <p className="text-sm font-medium text-slate-500">{t.collectSamples}</p>
                 {labels.map((label, idx) => (
-                  <div key={`${label}-${idx}`} className="flex gap-1 animate-slide-in-right" style={{ animationDelay: `${idx * 50}ms` }}>
-                    <button
-                      onClick={() => addTrainingSample(idx)}
-                      className="flex-1 py-2 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-semibold active-pop hover-pop shadow-sm"
-                    >
-                      הוסף כ-"{label}"
-                    </button>
-                    <button 
-                      onClick={() => removeLabel(idx)}
-                      className="px-2 text-slate-400 hover:text-red-500 transition-colors active-pop"
-                      title="הסר תגית"
-                    >
-                      ×
-                    </button>
+                  <div key={`${label}-${idx}`} className="flex flex-col gap-1">
+                    <div className="flex gap-1 animate-slide-in-right" style={{ animationDelay: `${idx * 50}ms` }}>
+                      <button
+                        onClick={() => addTrainingSample(idx)}
+                        className="flex-1 py-2 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-semibold active-pop hover-pop shadow-sm"
+                      >
+                        {t.addAs.replace('{label}', label)}
+                      </button>
+                      <button 
+                        onClick={() => removeLabel(idx)}
+                        className="px-2 text-slate-400 hover:text-red-500 transition-colors active-pop"
+                        title={t.delete}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="flex justify-between px-1">
+                      <span className={`text-[10px] font-bold ${samplesPerLabel[idx] < 3 ? 'text-red-500' : 'text-green-600'}`}>
+                        {t.categorySamples.replace('{count}', samplesPerLabel[idx].toString())}
+                        {samplesPerLabel[idx] < 3 && ' (min 3)'}
+                      </span>
+                    </div>
                   </div>
                 ))}
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-xs text-blue-700">סה"כ דגימות: {trainingData.length}</p>
+                  <p className="text-xs text-blue-700">{t.totalSamples.replace('{count}', trainingData.length.toString())}</p>
                 </div>
               </div>
             </div>
@@ -401,43 +442,48 @@ const App: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               <span className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm">2</span>
-              בקרת אימון
+              {t.trainingControl}
             </h2>
             <div className="space-y-4">
-              <div className="flex gap-4">
-                <button
-                  disabled={trainingData.length === 0}
-                  onClick={() => setIsTraining(!isTraining)}
-                  className={`flex-1 py-3 rounded-xl font-bold text-lg transition-all active-pop hover-pop shadow-lg ${
-                    isTraining 
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse-glow' 
-                    : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  {isTraining ? '⏸ השהה אימון' : iterations > 0 ? '▶ המשך אימון' : '▶ התחל אימון'}
-                </button>
-                <button
-                  onClick={() => {
-                    setTrainingData([]);
-                    setIsTraining(false);
-                    setIterations(0);
-                    setLoss(0);
-                    localStorage.removeItem('ann_weights');
-                    localStorage.removeItem('ann_iterations');
-                    localStorage.removeItem('ann_loss');
-                    setNn(new NeuralNetwork([INPUT_SIZE, 16, labels.length]));
-                  }}
-                  className="px-6 py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 font-bold active-pop transition-all shadow-sm"
-                >
-                  נקה הכל
-                </button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-4">
+                  <button
+                    disabled={!canTrain}
+                    onClick={() => setIsTraining(!isTraining)}
+                    className={`flex-1 py-3 rounded-xl font-bold text-lg transition-all active-pop hover-pop shadow-lg ${
+                      isTraining 
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse-glow' 
+                      : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                    }`}
+                  >
+                    {isTraining ? t.pauseTraining : iterations > 0 ? t.continueTraining : t.startTraining}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTrainingData([]);
+                      setIsTraining(false);
+                      setIterations(0);
+                      setLoss(0);
+                      localStorage.removeItem('ann_weights');
+                      localStorage.removeItem('ann_iterations');
+                      localStorage.removeItem('ann_loss');
+                      setNn(new NeuralNetwork([INPUT_SIZE, 16, labels.length]));
+                    }}
+                    className="px-6 py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 font-bold active-pop transition-all shadow-sm"
+                  >
+                    {t.clearAll}
+                  </button>
+                </div>
+                {!canTrain && trainingData.length > 0 && (
+                  <p className="text-xs text-red-500 font-bold text-center">{t.minSamplesWarning}</p>
+                )}
               </div>
               <div className="flex gap-4">
                 <button
                   onClick={resetWeights}
                   className="flex-1 py-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 font-bold border border-amber-200 transition-colors"
                 >
-                  אפס משקולות
+                  {t.resetWeights}
                 </button>
               </div>
               <div className="flex gap-4 pt-2 border-t border-slate-100">
@@ -445,7 +491,7 @@ const App: React.FC = () => {
                   onClick={downloadState}
                   className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 text-xs font-bold border border-slate-200"
                 >
-                  💾 הורד מוח
+                  {t.downloadBrain}
                 </button>
                 <div className="flex-1 relative">
                   <input
@@ -457,17 +503,17 @@ const App: React.FC = () => {
                   <button
                     className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 text-xs font-bold border border-slate-200 pointer-events-none"
                   >
-                    📂 טען מוח
+                    {t.uploadBrain}
                   </button>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">איטרציות</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">{t.iterations}</p>
                   <p className="text-2xl font-mono font-bold text-slate-800">{iterations}</p>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">הפסד (MSE)</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">{t.loss}</p>
                   <p className="text-2xl font-mono font-bold text-slate-800">{loss.toFixed(6)}</p>
                   <LossHistory history={lossHistory} />
                 </div>
@@ -476,39 +522,41 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
-            <h2 className="text-xl font-bold mb-4">איך זה עובד?</h2>
-            <div className="space-y-3 text-sm text-slate-600 leading-relaxed text-right">
+            <h2 className="text-xl font-bold mb-4">{t.howItWorks}</h2>
+            <div className="space-y-3 text-sm text-slate-600 leading-relaxed">
               <p>
-                <strong>1. מעבר קדימה (Feedforward):</strong> הציור שלך נדגם ברזולוציה של 50x50 פיקסלים. 
-                מתוכם מופקים 100 מאפיינים: סכום הפיקסלים בכל שורה (50) וסכום הפיקסלים בכל עמודה (50). 
-                אלו מפעילים את שכבת הקלט. האותות עוברים דרך המשקולות, מסוכמים ועוברים טרנספורמציה בכל נוירון.
+                <strong>{t.step1Title}</strong> {t.step1Desc}
               </p>
               <p>
-                <strong>2. פעפוע לאחור (Backpropagation):</strong> כשהרשת מקבלת תיוג, היא בודקת כמה היא טעתה. 
-                היא חוזרת אחורה ומבינה אילו משקולות גרמו לטעות.
+                <strong>{t.step2Title}</strong> {t.step2Desc}
               </p>
               <p>
-                <strong>3. עדכון משקולות:</strong> הרשת משנה מעט כל משקולת כדי להקטין את הטעות בפעם הבאה. 
-                אחרי כמה מאות איטרציות, היא כבר יודעת לזהות את האותיות שלך!
+                <strong>{t.step3Title}</strong> {t.step3Desc}
               </p>
               <div className="pt-3 border-t border-slate-100">
-                <p className="font-bold text-slate-800 mb-1">מה זה מדד ההפסד (MSE)?</p>
-                <p>
-                  <strong>MSE (Mean Squared Error)</strong> הוא "מדד הטעות" של הרשת. ככל שהמספר נמוך יותר, 
-                  כך הרשת מדויקת יותר. המדד מחשב את ממוצע ריבועי ההפרשים בין הניבוי של הרשת לבין התיוג האמיתי שלך. 
-                  בזמן האימון, תראה את המספר הזה יורד (בשאיפה לאפס) - זה הסימן שהרשת באמת לומדת!
-                </p>
+                <p className="font-bold text-slate-800 mb-1">{t.mseTitle}</p>
+                <p>{t.mseDesc}</p>
               </div>
               <div className="pt-3 border-t border-slate-100">
-                <p className="font-bold text-slate-800 mb-1">איך הרשת מתמודדת עם רעש? (Negative Sampling)</p>
-                <p>
-                  כדי להגביר את הדיוק, אנחנו משתמשים בטכניקה שנקראת <strong>דגימה שלילית</strong>. 
-                  אנחנו מוסיפים באופן אוטומטי "דגימות ריקות" (לוח לבן) ו"דגימות מלאות" (לוח שחור לגמרי) לתהליך האימון. 
-                  זה מלמד את הרשת שגם במצב של "שקט" (אין קלט) וגם במצב של "רעש" (הלוח מלא מדי), 
-                  עליה להחזיר 0 עבור כל האותיות. זה משפר משמעותית את הביטחון של הרשת ומונע ניחושים שגויים.
-                </p>
+                <p className="font-bold text-slate-800 mb-1">{t.negativeSamplingTitle}</p>
+                <p>{t.negativeSamplingDesc}</p>
               </div>
             </div>
+          </div>
+
+          {/* New Training Tips Section */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl shadow-lg border border-blue-100">
+            <h2 className="text-xl font-bold mb-4 text-blue-900 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              {t.trainingTipsTitle}
+            </h2>
+            <ul className="space-y-3 text-sm text-blue-800 list-disc list-inside">
+              <li><strong>{t.tipMinSamples}</strong></li>
+              <li>{t.tipBalance}</li>
+              <li>{t.tipReset}</li>
+              <li>{t.tipOverfitting}</li>
+              <li>{t.tipDiversity}</li>
+            </ul>
           </div>
         </section>
 
@@ -518,12 +566,13 @@ const App: React.FC = () => {
             nn={nn} 
             labels={labels} 
             onOpenDetails={() => setIsDetailedViewOpen(true)}
+            lang={lang}
           />
           
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <span className="w-6 h-6 bg-slate-200 text-slate-600 rounded-full flex items-center justify-center text-xs">3</span>
-              גלריית דגימות (עד 10 סוגי תוים)
+              {t.samplesGallery}
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4" dir="ltr">
               {[...trainingData].reverse().map((sample, i) => {
@@ -541,7 +590,7 @@ const App: React.FC = () => {
                         onClick={() => removeSample(originalIdx)}
                         className="text-slate-400 hover:text-red-500 text-xs font-bold active-pop transition-all"
                       >
-                        מחק
+                        {t.delete}
                       </button>
                     </div>
                   </div>
@@ -549,7 +598,7 @@ const App: React.FC = () => {
               })}
               {trainingData.length === 0 && (
                 <p className="col-span-full text-center py-8 text-slate-400 text-sm italic">
-                  אין דגימות עדיין. הגיע הזמן לצייר!
+                  {t.noSamples}
                 </p>
               )}
             </div>
@@ -560,12 +609,12 @@ const App: React.FC = () => {
       <Modal 
         isOpen={isDetailedViewOpen} 
         onClose={() => setIsDetailedViewOpen(false)} 
-        title="מבט מעמיק על רשת הנוירונים"
+        title={t.deepLook}
       >
-        <div className="mb-4 text-slate-300 text-sm text-right">
-          <p>כאן ניתן לראות את הערכים המספריים של המשקולות (על הקווים) וערכי ההפעלה (מתחת לעיגולים).</p>
+        <div className="mb-4 text-slate-300 text-sm">
+          <p>{t.deepLookDesc}</p>
         </div>
-        <DetailedVisualizer nn={nn} labels={labels} />
+        <DetailedVisualizer nn={nn} labels={labels} lang={lang} />
       </Modal>
     </div>
   );

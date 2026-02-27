@@ -1,13 +1,17 @@
 
 import React, { useRef, useEffect } from 'react';
+import { translations } from './translations';
+import type { Language } from './translations';
 
 interface DrawingCanvasProps {
   onDraw: (data: number[]) => void;
   size?: number;
   gridSize?: number;
+  lang?: Language;
 }
 
-const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridSize = 10 }) => {
+const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridSize = 10, lang = 'he' }) => {
+  const t = translations[lang];
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
 
@@ -112,7 +116,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridS
         onClick={clear}
         className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
       >
-        נקה לוח
+        {t.clearCanvas}
       </button>
     </div>
   );
