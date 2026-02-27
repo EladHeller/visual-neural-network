@@ -258,20 +258,27 @@ const App: React.FC = () => {
     
     let totalLoss = 0;
     
-    // Add hidden empty samples to improve confidence on empty canvas
-    // Count is approximately (total samples / number of labels)
-    const emptySamplesCount = Math.max(1, Math.floor(trainingData.length / labels.length));
+    // Add hidden negative samples to improve confidence and reduce noise/guessing
+    // 1. Empty samples: teach the network what "silence" looks like
+    // 2. Full samples: teach the network what "noise" looks like
+    const negativeSamplesCount = Math.max(1, Math.floor(trainingData.length / labels.length));
+    
     const emptyFeatures = getFeatures(new Array(GRID_SIZE * GRID_SIZE).fill(0));
+    const fullFeatures = getFeatures(new Array(GRID_SIZE * GRID_SIZE).fill(1));
     const zeroTarget = new Array(labels.length).fill(0);
 
-    // Create a training batch with real samples and hidden empty samples
+    // Create a training batch with real samples and hidden negative samples
     const batch = [
       ...trainingData.map(sample => ({
         features: getFeatures(sample.input),
         target: labels.map((_, i) => i === sample.label ? 1 : 0)
       })),
-      ...Array.from({ length: emptySamplesCount }, () => ({
+      ...Array.from({ length: negativeSamplesCount }, () => ({
         features: emptyFeatures,
+        target: zeroTarget
+      })),
+      ...Array.from({ length: negativeSamplesCount }, () => ({
+        features: fullFeatures,
         target: zeroTarget
       }))
     ];
@@ -368,16 +375,16 @@ const App: React.FC = () => {
 
                 <p className="text-sm font-medium text-slate-500">איסוף דוגמאות:</p>
                 {labels.map((label, idx) => (
-                  <div key={`${label}-${idx}`} className="flex gap-1">
+                  <div key={`${label}-${idx}`} className="flex gap-1 animate-slide-in-right" style={{ animationDelay: `${idx * 50}ms` }}>
                     <button
                       onClick={() => addTrainingSample(idx)}
-                      className="flex-1 py-2 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-semibold"
+                      className="flex-1 py-2 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-semibold active-pop hover-pop shadow-sm"
                     >
                       הוסף כ-"{label}"
                     </button>
                     <button 
                       onClick={() => removeLabel(idx)}
-                      className="px-2 text-slate-400 hover:text-red-500 transition-colors"
+                      className="px-2 text-slate-400 hover:text-red-500 transition-colors active-pop"
                       title="הסר תגית"
                     >
                       ×
@@ -401,9 +408,9 @@ const App: React.FC = () => {
                 <button
                   disabled={trainingData.length === 0}
                   onClick={() => setIsTraining(!isTraining)}
-                  className={`flex-1 py-3 rounded-xl font-bold text-lg transition-all ${
+                  className={`flex-1 py-3 rounded-xl font-bold text-lg transition-all active-pop hover-pop shadow-lg ${
                     isTraining 
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white animate-pulse-glow' 
                     : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
                   }`}
                 >
@@ -420,7 +427,7 @@ const App: React.FC = () => {
                     localStorage.removeItem('ann_loss');
                     setNn(new NeuralNetwork([INPUT_SIZE, 16, labels.length]));
                   }}
-                  className="px-6 py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 font-bold"
+                  className="px-6 py-3 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 font-bold active-pop transition-all shadow-sm"
                 >
                   נקה הכל
                 </button>
@@ -493,11 +500,12 @@ const App: React.FC = () => {
                 </p>
               </div>
               <div className="pt-3 border-t border-slate-100">
-                <p className="font-bold text-slate-800 mb-1">למה הרשת "שקטה" כשהקנבס ריק?</p>
+                <p className="font-bold text-slate-800 mb-1">איך הרשת מתמודדת עם רעש? (Negative Sampling)</p>
                 <p>
-                  כדי להגביר את הדיוק, אנחנו מוסיפים באופן אוטומטי "דגימות ריקות" לתהליך האימון. 
-                  זה מלמד את הרשת שאם הקלט הוא אפס (קנבס ריק), עליה להחזיר 0 עבור כל האותיות. 
-                  זה משפר משמעותית את הביטחון של הרשת ומפחית זיהויים שגויים.
+                  כדי להגביר את הדיוק, אנחנו משתמשים בטכניקה שנקראת <strong>דגימה שלילית</strong>. 
+                  אנחנו מוסיפים באופן אוטומטי "דגימות ריקות" (לוח לבן) ו"דגימות מלאות" (לוח שחור לגמרי) לתהליך האימון. 
+                  זה מלמד את הרשת שגם במצב של "שקט" (אין קלט) וגם במצב של "רעש" (הלוח מלא מדי), 
+                  עליה להחזיר 0 עבור כל האותיות. זה משפר משמעותית את הביטחון של הרשת ומונע ניחושים שגויים.
                 </p>
               </div>
             </div>
@@ -518,24 +526,27 @@ const App: React.FC = () => {
               גלריית דגימות (עד 10 סוגי תוים)
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4" dir="ltr">
-              {trainingData.map((sample, idx) => (
-                <div key={`sample-${idx}`} className="relative group bg-slate-50 p-2 rounded-lg border border-slate-100">
-                  <div className="aspect-square flex items-center justify-center">
-                    <SamplePreview input={sample.input} size={150} />
+              {[...trainingData].reverse().map((sample, i) => {
+                const originalIdx = trainingData.length - 1 - i;
+                return (
+                  <div key={`sample-${originalIdx}`} className="relative group bg-slate-50 p-2 rounded-lg border border-slate-100 animate-pop-in hover-pop transition-all">
+                    <div className="aspect-square flex items-center justify-center">
+                      <SamplePreview input={sample.input} size={150} />
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                        {labels[sample.label]}
+                      </span>
+                      <button 
+                        onClick={() => removeSample(originalIdx)}
+                        className="text-slate-400 hover:text-red-500 text-xs font-bold active-pop transition-all"
+                      >
+                        מחק
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                      {labels[sample.label]}
-                    </span>
-                    <button 
-                      onClick={() => removeSample(idx)}
-                      className="text-slate-400 hover:text-red-500 text-xs font-bold"
-                    >
-                      מחק
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {trainingData.length === 0 && (
                 <p className="col-span-full text-center py-8 text-slate-400 text-sm italic">
                   אין דגימות עדיין. הגיע הזמן לצייר!

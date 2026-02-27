@@ -86,6 +86,7 @@ const NetworkVisualizer: React.FC<NetworkVisualizerProps> = ({ nn, labels, onOpe
                     fill={`rgba(16, 185, 129, ${activation})`}
                     stroke="#10b981"
                     strokeWidth={lIdx === 0 ? "0.5" : "2"}
+                    className="transition-all duration-300 ease-out"
                   />
                   {lIdx === 0 && (nIdx === 0 || nIdx === 50) && (
                     <text
