@@ -215,7 +215,7 @@ const App: React.FC = () => {
       setLabels(updatedLabels);
       setNewLabelName('');
       setNn(new NeuralNetwork([INPUT_SIZE, 16, updatedLabels.length]));
-      setTrainingData([]);
+      // Note: trainingData is kept so the user doesn't lose their drawings
       localStorage.removeItem('ann_weights');
       localStorage.removeItem('ann_iterations');
       localStorage.removeItem('ann_loss');
@@ -228,9 +228,18 @@ const App: React.FC = () => {
   const removeLabel = (index: number) => {
     if (labels.length > 1) {
       const updatedLabels = labels.filter((_, i) => i !== index);
+      
+      // Remove samples of the deleted label and update indices for the rest
+      const updatedData = trainingData
+        .filter(sample => sample.label !== index)
+        .map(sample => ({
+          ...sample,
+          label: sample.label > index ? sample.label - 1 : sample.label
+        }));
+      
       setLabels(updatedLabels);
+      setTrainingData(updatedData);
       setNn(new NeuralNetwork([INPUT_SIZE, 16, updatedLabels.length]));
-      setTrainingData([]);
       localStorage.removeItem('ann_weights');
       localStorage.removeItem('ann_iterations');
       localStorage.removeItem('ann_loss');
