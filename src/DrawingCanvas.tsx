@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 interface DrawingCanvasProps {
   onDraw: (data: number[]) => void;
@@ -9,7 +9,7 @@ interface DrawingCanvasProps {
 
 const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridSize = 10 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -26,17 +26,17 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridS
     if ('touches' in e) {
       e.preventDefault();
     }
-    setIsDrawing(true);
+    isDrawingRef.current = true;
     draw(e);
   };
 
   const stopDrawing = () => {
-    setIsDrawing(false);
+    isDrawingRef.current = false;
     processCanvas();
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
+    if (!isDrawingRef.current) return;
     if ('touches' in e) {
       e.preventDefault();
     }

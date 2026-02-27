@@ -51,6 +51,28 @@ const SamplePreview: React.FC<{ input: number[], size: number }> = ({ input, siz
   return <canvas ref={canvasRef} width={size} height={size} className="rounded border border-slate-200" />;
 };
 
+const LossHistory: React.FC<{ history: number[] }> = ({ history }) => {
+  if (history.length < 2) return null;
+  const max = Math.max(...history);
+  const min = Math.min(...history);
+  const range = max - min || 1;
+  const width = 200;
+  const height = 40;
+  const points = history.map((h, i) => ({
+    x: (i / (history.length - 1)) * width,
+    y: height - ((h - min) / range) * height
+  }));
+  const path = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
+
+  return (
+    <div className="mt-2">
+      <svg width={width} height={height} className="overflow-visible">
+        <path d={path} fill="none" stroke="#2563eb" strokeWidth="2" />
+      </svg>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [labels, setLabels] = useState<string[]>(() => {
     const saved = localStorage.getItem('ann_labels');
@@ -70,6 +92,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('ann_loss');
     return saved ? parseFloat(saved) : 0;
   });
+  const [lossHistory, setLossHistory] = useState<number[]>([]);
   const [trainingData, setTrainingData] = useState<{input: number[], label: number}[]>(() => {
     const saved = localStorage.getItem('ann_data');
     if (!saved) return [];
@@ -130,8 +153,55 @@ const App: React.FC = () => {
     localStorage.removeItem('ann_loss');
     setIterations(0);
     setLoss(0);
+    setLossHistory([]);
     // Force re-render for visualizer
     nn.feedForward(getFeatures(currentInput));
+  };
+
+  const downloadState = () => {
+    const state = {
+      weights: nn.weights,
+      biases: nn.biases,
+      labels,
+      iterations,
+      loss
+    };
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ann-brain-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const uploadState = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const state = JSON.parse(event.target?.result as string);
+        if (state.weights && state.biases) {
+          nn.importState(state);
+          if (state.labels) setLabels(state.labels);
+          if (state.iterations) setIterations(state.iterations);
+          if (state.loss) setLoss(state.loss);
+          // Save to local storage
+          localStorage.setItem('ann_weights', JSON.stringify(nn.exportState()));
+          localStorage.setItem('ann_labels', JSON.stringify(state.labels));
+          localStorage.setItem('ann_iterations', state.iterations.toString());
+          localStorage.setItem('ann_loss', state.loss.toString());
+          nn.feedForward(getFeatures(currentInput));
+          alert('המוח נטען בהצלחה!');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('שגיאה בטעינת הקובץ.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const removeSample = (idx: number) => {
@@ -140,7 +210,7 @@ const App: React.FC = () => {
   };
 
   const addLabel = () => {
-    if (newLabelName && labels.length < 5 && !labels.includes(newLabelName)) {
+    if (newLabelName && labels.length < 10 && !labels.includes(newLabelName)) {
       const updatedLabels = [...labels, newLabelName];
       setLabels(updatedLabels);
       setNewLabelName('');
@@ -204,7 +274,9 @@ const App: React.FC = () => {
       totalLoss += nn.train(sample.features, sample.target);
     });
     
-    setLoss(totalLoss / batch.length);
+    const avgLoss = totalLoss / batch.length;
+    setLoss(avgLoss);
+    setLossHistory(prev => [...prev.slice(-99), avgLoss]);
     setIterations(prev => prev + 1);
     nn.feedForward(getFeatures(currentInput));
   }, [trainingData, nn, currentInput, labels]);
@@ -233,22 +305,28 @@ const App: React.FC = () => {
                 <span className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm">1</span>
                 צייר ותייג
               </h2>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  maxLength={1}
-                  value={newLabelName}
-                  onChange={(e) => setNewLabelName(e.target.value)}
-                  placeholder="תו חדש"
-                  className="w-24 px-3 py-1 border rounded bg-slate-50 text-slate-800"
-                />
-                <button
-                  onClick={addLabel}
-                  disabled={labels.length >= 5 || !newLabelName}
-                  className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50 font-bold"
-                >
-                  + הוסף
-                </button>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={1}
+                    value={newLabelName}
+                    disabled={labels.length >= 10}
+                    onChange={(e) => setNewLabelName(e.target.value)}
+                    placeholder={labels.length >= 10 ? "מלא" : "תו חדש"}
+                    className="w-24 px-3 py-1 border rounded bg-slate-50 text-slate-800 disabled:bg-slate-200 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    onClick={addLabel}
+                    disabled={labels.length >= 10 || !newLabelName}
+                    className="px-3 py-1 bg-blue-600 text-white rounded disabled:opacity-50 font-bold"
+                  >
+                    + הוסף
+                  </button>
+                </div>
+                {labels.length >= 10 && (
+                  <span className="text-[10px] text-amber-600 font-bold">הגעת למקסימום! יותר מ-10 תוים זה "כבד" מדי למודל הקטן הזה.</span>
+                )}
               </div>
             </div>
             
@@ -346,6 +424,27 @@ const App: React.FC = () => {
                   אפס משקולות
                 </button>
               </div>
+              <div className="flex gap-4 pt-2 border-t border-slate-100">
+                <button
+                  onClick={downloadState}
+                  className="flex-1 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 text-xs font-bold border border-slate-200"
+                >
+                  💾 הורד מוח
+                </button>
+                <div className="flex-1 relative">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={uploadState}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                  <button
+                    className="w-full py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 text-xs font-bold border border-slate-200 pointer-events-none"
+                  >
+                    📂 טען מוח
+                  </button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">איטרציות</p>
@@ -354,6 +453,7 @@ const App: React.FC = () => {
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                   <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">הפסד (MSE)</p>
                   <p className="text-2xl font-mono font-bold text-slate-800">{loss.toFixed(6)}</p>
+                  <LossHistory history={lossHistory} />
                 </div>
               </div>
             </div>
@@ -376,11 +476,19 @@ const App: React.FC = () => {
                 אחרי כמה מאות איטרציות, היא כבר יודעת לזהות את האותיות שלך!
               </p>
               <div className="pt-3 border-t border-slate-100">
+                <p className="font-bold text-slate-800 mb-1">מה זה מדד ההפסד (MSE)?</p>
+                <p>
+                  <strong>MSE (Mean Squared Error)</strong> הוא "מדד הטעות" של הרשת. ככל שהמספר נמוך יותר, 
+                  כך הרשת מדויקת יותר. המדד מחשב את ממוצע ריבועי ההפרשים בין הניבוי של הרשת לבין התיוג האמיתי שלך. 
+                  בזמן האימון, תראה את המספר הזה יורד (בשאיפה לאפס) - זה הסימן שהרשת באמת לומדת!
+                </p>
+              </div>
+              <div className="pt-3 border-t border-slate-100">
                 <p className="font-bold text-slate-800 mb-1">למה הרשת "שקטה" כשהקנבס ריק?</p>
                 <p>
-                  בעבר הרשת היתה תמיד "מנחשת" משהו בגלל ה-<strong>Bias (הטיה)</strong>. כעת, אנחנו מוסיפים 
-                  באופן אוטומטי "דגימות ריקות" לתהליך האימון. זה מלמד את הרשת שאם הקלט הוא אפס (קנבס ריק), 
-                  עליה להחזיר 0 עבור כל האותיות. זה משפר משמעותית את הביטחון של הרשת ומפחית זיהויים שגויים.
+                  כדי להגביר את הדיוק, אנחנו מוסיפים באופן אוטומטי "דגימות ריקות" לתהליך האימון. 
+                  זה מלמד את הרשת שאם הקלט הוא אפס (קנבס ריק), עליה להחזיר 0 עבור כל האותיות. 
+                  זה משפר משמעותית את הביטחון של הרשת ומפחית זיהויים שגויים.
                 </p>
               </div>
             </div>
@@ -398,7 +506,7 @@ const App: React.FC = () => {
           <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <span className="w-6 h-6 bg-slate-200 text-slate-600 rounded-full flex items-center justify-center text-xs">3</span>
-              גלריית דגימות (עד 3 לכל אות)
+              גלריית דגימות (עד 10 סוגי תוים)
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4" dir="ltr">
               {trainingData.map((sample, idx) => (
