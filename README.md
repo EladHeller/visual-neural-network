@@ -6,7 +6,8 @@ An interactive, browser-based neural network visualizer that allows users to dra
 
 ## Features
 
-- **Interactive Drawing Canvas**: Draw characters or shapes on a 10x10 grid.
+- **Interactive Drawing Canvas**: Draw characters or shapes on a high-resolution 50x50 grid.
+- **Feature Extraction**: Instead of raw pixels, the network uses the vector sum of each row and column (100 inputs) for better shape recognition and translation invariance.
 - **Real-time Training**: Train the network using Backpropagation and Gradient Descent directly in the browser.
 - **Live Visualization**: See the neural network's architecture, weights (line thickness/color), and activations (node brightness) update as it learns.
 - **Customizable Labels**: Add up to 5 custom labels to teach the network different patterns.
@@ -24,7 +25,7 @@ An interactive, browser-based neural network visualizer that allows users to dra
 
 ## How it Works
 
-1. **Feedforward**: Your drawing is converted into a 100-pixel input vector. These signals pass through the hidden layer, are multiplied by weights, and transformed by activation functions (Sigmoid) to produce a prediction at the output layer.
+1. **Feedforward**: Your drawing is sampled on a 50x50 grid. The network calculates the sum of each row (50) and each column (50), creating a 100-length feature vector. These signals pass through the hidden layer, are multiplied by weights, and transformed by activation functions (Sigmoid) to produce a prediction at the output layer.
 2. **Backpropagation**: When you label a drawing, the network calculates the error (Mean Squared Error) between its prediction and the target. It then propagates this error backward to determine how much each weight contributed to the mistake.
 3. **Weight Update**: The network slightly adjusts every weight to minimize the error for the next iteration. Over hundreds of iterations, it "learns" to recognize your specific drawing style.
 

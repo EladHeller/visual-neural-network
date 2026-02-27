@@ -1,12 +1,55 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { NeuralNetwork } from './nn';
 import DrawingCanvas from './DrawingCanvas';
 import NetworkVisualizer from './NetworkVisualizer';
 import DetailedVisualizer from './DetailedVisualizer';
 import Modal from './Modal';
 
-const GRID_SIZE = 10;
-const INPUT_SIZE = GRID_SIZE * GRID_SIZE;
+const GRID_SIZE = 50;
+const INPUT_SIZE = GRID_SIZE * 2; // 50 row sums + 50 col sums
+
+const getFeatures = (grid: number[]): number[] => {
+  const rowSums = new Array(GRID_SIZE).fill(0);
+  const colSums = new Array(GRID_SIZE).fill(0);
+  
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const val = grid[r * GRID_SIZE + c];
+      rowSums[r] += val;
+      colSums[c] += val;
+    }
+  }
+  
+  // Normalize by GRID_SIZE (max sum is GRID_SIZE)
+  return [...rowSums.map(s => s / GRID_SIZE), ...colSums.map(s => s / GRID_SIZE)];
+};
+
+const SamplePreview: React.FC<{ input: number[], size: number }> = ({ input, size }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = '#1e293b'; // slate-800
+        
+        const pixelSize = size / GRID_SIZE;
+        for (let i = 0; i < input.length; i++) {
+          if (input[i] > 0) {
+            const r = Math.floor(i / GRID_SIZE);
+            const c = i % GRID_SIZE;
+            ctx.fillRect(c * pixelSize, r * pixelSize, pixelSize + 0.5, pixelSize + 0.5);
+          }
+        }
+      }
+    }
+  }, [input, size]);
+
+  return <canvas ref={canvasRef} width={size} height={size} className="rounded border border-slate-200" />;
+};
 
 const App: React.FC = () => {
   const [labels, setLabels] = useState<string[]>(() => {
@@ -22,14 +65,27 @@ const App: React.FC = () => {
     }
     return network;
   });
-  const [currentInput, setCurrentInput] = useState<number[]>(new Array(INPUT_SIZE).fill(0));
+  const [currentInput, setCurrentInput] = useState<number[]>(new Array(GRID_SIZE * GRID_SIZE).fill(0));
   const [loss, setLoss] = useState<number>(() => {
     const saved = localStorage.getItem('ann_loss');
     return saved ? parseFloat(saved) : 0;
   });
   const [trainingData, setTrainingData] = useState<{input: number[], label: number}[]>(() => {
     const saved = localStorage.getItem('ann_data');
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      // Migration: if data is from old 10x10 grid, clear it
+      if (parsed.length > 0 && parsed[0].input.length !== GRID_SIZE * GRID_SIZE) {
+        localStorage.removeItem('ann_weights');
+        localStorage.removeItem('ann_iterations');
+        localStorage.removeItem('ann_loss');
+        return [];
+      }
+      return parsed;
+    } catch {
+      return [];
+    }
   });
   const [iterations, setIterations] = useState<number>(() => {
     const saved = localStorage.getItem('ann_iterations');
@@ -64,7 +120,7 @@ const App: React.FC = () => {
 
   const handleDraw = (data: number[]) => {
     setCurrentInput(data);
-    nn.feedForward(data);
+    nn.feedForward(getFeatures(data));
   };
 
   const resetWeights = () => {
@@ -75,7 +131,7 @@ const App: React.FC = () => {
     setIterations(0);
     setLoss(0);
     // Force re-render for visualizer
-    nn.feedForward(currentInput);
+    nn.feedForward(getFeatures(currentInput));
   };
 
   const removeSample = (idx: number) => {
@@ -122,18 +178,36 @@ const App: React.FC = () => {
     if (trainingData.length === 0) return;
     
     let totalLoss = 0;
-    const shuffled = [...trainingData].sort(() => Math.random() - 0.5);
     
-    shuffled.forEach(sample => {
-      const target = new Array(labels.length).fill(0);
-      target[sample.label] = 1;
-      totalLoss += nn.train(sample.input, target);
+    // Add hidden empty samples to improve confidence on empty canvas
+    // Count is approximately (total samples / number of labels)
+    const emptySamplesCount = Math.max(1, Math.floor(trainingData.length / labels.length));
+    const emptyFeatures = getFeatures(new Array(GRID_SIZE * GRID_SIZE).fill(0));
+    const zeroTarget = new Array(labels.length).fill(0);
+
+    // Create a training batch with real samples and hidden empty samples
+    const batch = [
+      ...trainingData.map(sample => ({
+        features: getFeatures(sample.input),
+        target: labels.map((_, i) => i === sample.label ? 1 : 0)
+      })),
+      ...Array.from({ length: emptySamplesCount }, () => ({
+        features: emptyFeatures,
+        target: zeroTarget
+      }))
+    ];
+
+    // Shuffle batch for better SGD
+    batch.sort(() => Math.random() - 0.5);
+    
+    batch.forEach(sample => {
+      totalLoss += nn.train(sample.features, sample.target);
     });
     
-    setLoss(totalLoss / trainingData.length);
+    setLoss(totalLoss / batch.length);
     setIterations(prev => prev + 1);
-    nn.feedForward(currentInput);
-  }, [trainingData, nn, currentInput, labels.length]);
+    nn.feedForward(getFeatures(currentInput));
+  }, [trainingData, nn, currentInput, labels]);
 
   useEffect(() => {
     let interval: number;
@@ -246,7 +320,7 @@ const App: React.FC = () => {
                     : 'bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
                   }`}
                 >
-                  {isTraining ? '⏸ השהה אימון' : '▶ התחל אימון'}
+                  {isTraining ? '⏸ השהה אימון' : iterations > 0 ? '▶ המשך אימון' : '▶ התחל אימון'}
                 </button>
                 <button
                   onClick={() => {
@@ -271,12 +345,6 @@ const App: React.FC = () => {
                 >
                   אפס משקולות
                 </button>
-                <button
-                  onClick={() => setIsDetailedViewOpen(true)}
-                  className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-bold transition-colors"
-                >
-                  ארכיטקטורה מפורטת
-                </button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
@@ -295,9 +363,9 @@ const App: React.FC = () => {
             <h2 className="text-xl font-bold mb-4">איך זה עובד?</h2>
             <div className="space-y-3 text-sm text-slate-600 leading-relaxed text-right">
               <p>
-                <strong>1. מעבר קדימה (Feedforward):</strong> הציור שלך הופך ל-{INPUT_SIZE} פיקסלים. 
-                אלו מפעילים את שכבת הקלט (Input Layer). האותות עוברים דרך המשקולות (Weights), 
-                מסוכמים ועוברים טרנספורמציה בכל נוירון (Neuron).
+                <strong>1. מעבר קדימה (Feedforward):</strong> הציור שלך נדגם ברזולוציה של 50x50 פיקסלים. 
+                מתוכם מופקים 100 מאפיינים: סכום הפיקסלים בכל שורה (50) וסכום הפיקסלים בכל עמודה (50). 
+                אלו מפעילים את שכבת הקלט. האותות עוברים דרך המשקולות, מסוכמים ועוברים טרנספורמציה בכל נוירון.
               </p>
               <p>
                 <strong>2. פעפוע לאחור (Backpropagation):</strong> כשהרשת מקבלת תיוג, היא בודקת כמה היא טעתה. 
@@ -305,14 +373,14 @@ const App: React.FC = () => {
               </p>
               <p>
                 <strong>3. עדכון משקולות:</strong> הרשת משנה מעט כל משקולת כדי להקטין את הטעות בפעם הבאה. 
-                אחרי {iterations} איטרציות, היא כבר יודעת לזהות את האותיות שלך!
+                אחרי כמה מאות איטרציות, היא כבר יודעת לזהות את האותיות שלך!
               </p>
               <div className="pt-3 border-t border-slate-100">
-                <p className="font-bold text-slate-800 mb-1">למה הרשת "חיה" גם כשהקנבס ריק?</p>
+                <p className="font-bold text-slate-800 mb-1">למה הרשת "שקטה" כשהקנבס ריק?</p>
                 <p>
-                  גם כשלא ציירת כלום (קלט 0), הרשת עדיין מציגה אחוזים. זה קורה בגלל ה-<strong>Bias (הטיה)</strong>: 
-                  לכל נוירון יש "דעה מוקדמת" אקראית שנוספת לחישוב. בנוסף, פונקציית ה-<strong>Sigmoid</strong> תמיד 
-                  מחזירה ערך בין 0 ל-1 (למשל, 0.5 עבור קלט של 0), כך שהרשת תמיד "מנחשת" משהו, גם אם זה ניחוש אקראי לחלוטין.
+                  בעבר הרשת היתה תמיד "מנחשת" משהו בגלל ה-<strong>Bias (הטיה)</strong>. כעת, אנחנו מוסיפים 
+                  באופן אוטומטי "דגימות ריקות" לתהליך האימון. זה מלמד את הרשת שאם הקלט הוא אפס (קנבס ריק), 
+                  עליה להחזיר 0 עבור כל האותיות. זה משפר משמעותית את הביטחון של הרשת ומפחית זיהויים שגויים.
                 </p>
               </div>
             </div>
@@ -335,13 +403,8 @@ const App: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4" dir="ltr">
               {trainingData.map((sample, idx) => (
                 <div key={`sample-${idx}`} className="relative group bg-slate-50 p-2 rounded-lg border border-slate-100">
-                  <div className="grid grid-cols-10 gap-[1px] bg-slate-200 p-[1px] rounded overflow-hidden aspect-square" dir="ltr">
-                    {sample.input.map((pixel, pIdx) => (
-                      <div 
-                        key={pIdx} 
-                        className={`w-full h-full ${pixel > 0 ? 'bg-slate-800' : 'bg-white'}`}
-                      />
-                    ))}
+                  <div className="aspect-square flex items-center justify-center">
+                    <SamplePreview input={sample.input} size={150} />
                   </div>
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">

@@ -51,7 +51,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridS
 
     ctx.fillStyle = 'black';
     ctx.beginPath();
-    ctx.arc(x, y, 10, 0, Math.PI * 2);
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
     ctx.fill();
   };
 
@@ -72,8 +72,10 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onDraw, size = 200, gridS
     
     const grayscale: number[] = [];
     for (let i = 0; i < data.length; i += 4) {
-      // Convert to 0 (white) or 1 (black)
+      // Use alpha channel or average to determine intensity
+      // We'll use 1 - average/255 to get 1 for black and 0 for white
       const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+      // Use a threshold or just normalize
       grayscale.push(avg < 128 ? 1 : 0);
     }
     onDraw(grayscale);

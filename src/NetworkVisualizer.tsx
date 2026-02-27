@@ -78,15 +78,25 @@ const NetworkVisualizer: React.FC<NetworkVisualizerProps> = ({ nn, labels, onOpe
             Array.from({ length: layerSize }).map((_, nIdx) => {
               const pos = getNodePos(lIdx, nIdx);
               const activation = nn.activations[lIdx]?.[nIdx] || 0;
-              const size = lIdx === 0 ? 5 : 12;
+              const size = lIdx === 0 ? 2 : 12;
               return (
                 <g key={`n-${lIdx}-${nIdx}`}>
                   <circle 
                     cx={pos.x} cy={pos.y} r={size}
                     fill={`rgba(16, 185, 129, ${activation})`}
                     stroke="#10b981"
-                    strokeWidth="2"
+                    strokeWidth={lIdx === 0 ? "0.5" : "2"}
                   />
+                  {lIdx === 0 && (nIdx === 0 || nIdx === 50) && (
+                    <text
+                      x={pos.x - 10} y={pos.y}
+                      textAnchor="end"
+                      className="text-[10px] fill-slate-400 font-bold"
+                      dominantBaseline="middle"
+                    >
+                      {nIdx === 0 ? 'סכומי שורות' : 'סכומי עמודות'}
+                    </text>
+                  )}
                   {lIdx === nn.layers.length - 1 && (
                     <text 
                       x={pos.x + 18} y={pos.y + 5} 
