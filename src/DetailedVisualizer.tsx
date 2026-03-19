@@ -81,14 +81,16 @@ const DetailedVisualizer: React.FC<DetailedVisualizerProps> = ({ nn, labels, lan
                   stroke="#10b981"
                   strokeWidth={lIdx === 0 ? "0.5" : "2"}
                 />
-                {lIdx === 0 && (nIdx === 0 || nIdx === 50) && (
+                {lIdx === 0 && (nIdx === 0 || nIdx === 50 || nIdx === 100 || nIdx === 101) && (
                   <text
                     x={pos.x - 10} y={pos.y}
                     textAnchor="end"
                     className="text-[10px] fill-slate-400 font-bold"
                     dominantBaseline="middle"
                   >
-                    {nIdx === 0 ? t.rowSums : t.colSums}
+                    {nIdx === 0 ? t.rowSums : 
+                     nIdx === 50 ? t.colSums : 
+                     nIdx === 100 ? t.originalWidth : t.originalHeight}
                   </text>
                 )}
                 {/* Activation values */}

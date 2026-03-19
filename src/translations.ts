@@ -25,7 +25,7 @@ export const translations = {
     loss: "הפסד (MSE)",
     howItWorks: "איך זה עובד?",
     step1Title: "1. מעבר קדימה (Feedforward):",
-    step1Desc: "הציור שלך נדגם ברזולוציה של 50x50 פיקסלים. מתוכם מופקים 100 מאפיינים: סכום הפיקסלים בכל שורה (50) וסכום הפיקסלים בכל עמודה (50). אלו מפעילים את שכבת הקלט. האותות עוברים דרך המשקולות, מסוכמים ועוברים טרנספורמציה בכל נוירון.",
+    step1Desc: "הציור שלך עובר עיבוד מקדים: הוא ממורכז ומותאם לגודל אחיד. כדי להבדיל בין אותיות דומות ששונות רק בגודל (כמו י' ו-ר'), הרשת מקבלת גם את הממדים המקוריים של הציור כקלט נוסף. בסה'כ מופקים 102 מאפיינים: 50 סכומי שורות, 50 סכומי עמודות, ו-2 נתוני גודל.",
     step2Title: "2. פעפוע לאחור (Backpropagation):",
     step2Desc: "כשהרשת מקבלת תיוג, היא בודקת כמה היא טעתה. היא חוזרת אחורה ומבינה אילו משקולות גרמו לטעות.",
     step3Title: "3. עדכון משקולות:",
@@ -42,6 +42,8 @@ export const translations = {
     networkStructure: "מבנה רשת הנוירונים",
     rowSums: "סכומי שורות",
     colSums: "סכומי עמודות",
+    originalWidth: "רוחב מקורי",
+    originalHeight: "גובה מקורי",
     fullView: "תצוגה מלאה",
     brainLoaded: "המוח נטען בהצלחה!",
     errorLoading: "שגיאה בטעינת הקובץ.",
@@ -51,9 +53,10 @@ export const translations = {
     tipMinSamples: "מינימום 5 דגימות לכל קטגוריה לקבלת תוצאות טובות.",
     tipBalance: "איזון דגימות: השתדלו שמספר הדגימות בכל קטגוריה יהיה דומה.",
     tipReset: "שינוי מאסיבי: אם הוספתם כמות גדולה של דגימות חדשות, מומלץ לאפס משקולות.",
-    tipOverfitting: "מניעת התאמת-יתר (Overfitting): אל תציירו בדיוק את אותו הדבר, ציירו וריאציות שונות של אותה קטגוריה.",
-    tipDiversity: "גיוון: ציירו בגדלים שונים, במיקומים שונים ובזוויות שונות בתוך הריבוע.",
-    categorySamples: "{count} דגימות"
+    tipOverfitting: "מניעת התאמת-יתר (Overfitting): אל תציירו את אותה הצורה בדיוק במיקומים שונים, אלא ציירו וריאציות אמיתיות של האות (למשל סגנונות כתב שונים).",
+    tipDiversity: "גיוון: ציירו וריאציות שונות של הצורה (למשל 'א' רחבה לעומת 'א' צרה) וגדלים שונים.",
+    categorySamples: "{count} דגימות",
+    minSamples: " (מינימום 3)"
   },
   en: {
     title: "Neural Network Visualization",
@@ -79,7 +82,7 @@ export const translations = {
     loss: "Loss (MSE)",
     howItWorks: "How it works?",
     step1Title: "1. Feedforward:",
-    step1Desc: "Your drawing is sampled at 50x50 resolution. 100 features are extracted: row sums (50) and column sums (50). These activate the input layer. Signals pass through weights, are summed, and transformed in each neuron.",
+    step1Desc: "Your drawing is pre-processed: it is centered and scaled to a uniform size. To distinguish between similar shapes that differ only in size (like 'Yod' and 'Resh'), the network also receives the original dimensions as additional inputs. A total of 102 features are extracted: 50 row sums, 50 column sums, and 2 size values.",
     step2Title: "2. Backpropagation:",
     step2Desc: "When the network receives a tag, it checks its error. It goes back to understand which weights caused the mistake.",
     step3Title: "3. Weight Update:",
@@ -96,6 +99,8 @@ export const translations = {
     networkStructure: "Neural Network Structure",
     rowSums: "Row Sums",
     colSums: "Col Sums",
+    originalWidth: "Original Width",
+    originalHeight: "Original Height",
     fullView: "Full View",
     brainLoaded: "Brain loaded successfully!",
     errorLoading: "Error loading file.",
@@ -105,8 +110,9 @@ export const translations = {
     tipMinSamples: "Minimum 5 samples per category for good results.",
     tipBalance: "Balance: Try to have a similar number of samples for each category.",
     tipReset: "Massive Change: If you added many new samples, resetting weights is recommended.",
-    tipOverfitting: "Avoid Overfitting: Don't draw exactly the same thing; draw different variations.",
-    tipDiversity: "Diversity: Draw in different sizes, positions, and angles within the square.",
-    categorySamples: "{count} samples"
+    tipOverfitting: "Avoid Overfitting: Don't just draw the same shape in different positions (it no longer helps the network); instead, draw real variations (e.g., different handwriting styles).",
+    tipDiversity: "Diversity: Draw different variations of the shape (e.g., wide vs. narrow) instead of just changing position or size.",
+    categorySamples: "{count} samples",
+    minSamples: " (min 3)"
   }
 };

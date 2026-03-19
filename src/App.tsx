@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { NeuralNetwork } from './nn';
 import DrawingCanvas from './DrawingCanvas';
+import type { DrawingCanvasHandle } from './DrawingCanvas';
 import NetworkVisualizer from './NetworkVisualizer';
 import DetailedVisualizer from './DetailedVisualizer';
 import Modal from './Modal';
@@ -8,9 +9,10 @@ import { translations } from './translations';
 import type { Language } from './translations';
 
 const GRID_SIZE = 50;
-const INPUT_SIZE = GRID_SIZE * 2; // 50 row sums + 50 col sums
+const CANVAS_SIZE = 200;
+const INPUT_SIZE = GRID_SIZE * 2 + 2; // 50 row sums + 50 col sums + 2 size features
 
-const getFeatures = (grid: number[]): number[] => {
+const getFeatures = (grid: number[], metadata?: { width: number, height: number }): number[] => {
   const rowSums = new Array(GRID_SIZE).fill(0);
   const colSums = new Array(GRID_SIZE).fill(0);
   
@@ -22,8 +24,14 @@ const getFeatures = (grid: number[]): number[] => {
     }
   }
   
-  // Normalize by GRID_SIZE (max sum is GRID_SIZE)
-  return [...rowSums.map(s => s / GRID_SIZE), ...colSums.map(s => s / GRID_SIZE)];
+  // Normalize row/col sums by GRID_SIZE
+  const baseFeatures = [...rowSums.map(s => s / GRID_SIZE), ...colSums.map(s => s / GRID_SIZE)];
+  
+  // Add metadata features: relative width and height (normalized 0-1)
+  const widthFeature = (metadata?.width || 0) / CANVAS_SIZE;
+  const heightFeature = (metadata?.height || 0) / CANVAS_SIZE;
+  
+  return [...baseFeatures, widthFeature, heightFeature];
 };
 
 const SamplePreview: React.FC<{ input: number[], size: number }> = ({ input, size }) => {
@@ -39,7 +47,8 @@ const SamplePreview: React.FC<{ input: number[], size: number }> = ({ input, siz
         ctx.fillStyle = '#1e293b'; // slate-800
         
         const pixelSize = size / GRID_SIZE;
-        for (let i = 0; i < input.length; i++) {
+        // input might be GRID_SIZE*GRID_SIZE or contain metadata (old data)
+        for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
           if (input[i] > 0) {
             const r = Math.floor(i / GRID_SIZE);
             const c = i % GRID_SIZE;
@@ -92,23 +101,37 @@ const App: React.FC = () => {
     const network = new NeuralNetwork([INPUT_SIZE, 16, labels.length]);
     const savedWeights = localStorage.getItem('ann_weights');
     if (savedWeights) {
-      network.importState(JSON.parse(savedWeights));
+      try {
+        const state = JSON.parse(savedWeights);
+        // Migration: check if input size matches
+        if (state.weights && state.weights[0][0].length === INPUT_SIZE) {
+          network.importState(state);
+        } else {
+          localStorage.removeItem('ann_weights');
+        }
+      } catch {
+        localStorage.removeItem('ann_weights');
+      }
     }
     return network;
   });
-  const [currentInput, setCurrentInput] = useState<number[]>(new Array(GRID_SIZE * GRID_SIZE).fill(0));
+  const [currentInput, setCurrentInput] = useState<{ grid: number[], metadata: { width: number, height: number } }>({
+    grid: new Array(GRID_SIZE * GRID_SIZE).fill(0),
+    metadata: { width: 0, height: 0 }
+  });
   const [loss, setLoss] = useState<number>(() => {
     const saved = localStorage.getItem('ann_loss');
     return saved ? parseFloat(saved) : 0;
   });
   const [lossHistory, setLossHistory] = useState<number[]>([]);
-  const [trainingData, setTrainingData] = useState<{input: number[], label: number}[]>(() => {
+  const [trainingData, setTrainingData] = useState<{input: number[], metadata: {width: number, height: number}, label: number}[]>(() => {
     const saved = localStorage.getItem('ann_data');
     if (!saved) return [];
     try {
       const parsed = JSON.parse(saved);
-      // Migration: if data is from old 10x10 grid, clear it
-      if (parsed.length > 0 && parsed[0].input.length !== GRID_SIZE * GRID_SIZE) {
+      // Migration: Check if data is from old format (no metadata)
+      if (parsed.length > 0 && !parsed[0].metadata) {
+        localStorage.removeItem('ann_data');
         localStorage.removeItem('ann_weights');
         localStorage.removeItem('ann_iterations');
         localStorage.removeItem('ann_loss');
@@ -125,6 +148,7 @@ const App: React.FC = () => {
   });
   const [isTraining, setIsTraining] = useState(false);
   const [isDetailedViewOpen, setIsDetailedViewOpen] = useState(false);
+  const canvasRef = useRef<DrawingCanvasHandle>(null);
 
   // Persistence: Save on change
   useEffect(() => {
@@ -154,9 +178,9 @@ const App: React.FC = () => {
     }
   }, [isTraining, iterations, nn]);
 
-  const handleDraw = (data: number[]) => {
-    setCurrentInput(data);
-    nn.feedForward(getFeatures(data));
+  const handleDraw = (grid: number[], metadata: { width: number, height: number }) => {
+    setCurrentInput({ grid, metadata });
+    nn.feedForward(getFeatures(grid, metadata));
   };
 
   const resetWeights = () => {
@@ -168,7 +192,7 @@ const App: React.FC = () => {
     setLoss(0);
     setLossHistory([]);
     // Force re-render for visualizer
-    nn.feedForward(getFeatures(currentInput));
+    nn.feedForward(getFeatures(currentInput.grid, currentInput.metadata));
   };
 
   const downloadState = () => {
@@ -197,6 +221,11 @@ const App: React.FC = () => {
       try {
         const state = JSON.parse(event.target?.result as string);
         if (state.weights && state.biases) {
+          // Verify input size compatibility
+          if (state.weights[0][0].length !== INPUT_SIZE) {
+            alert(t.errorLoading + " (Input size mismatch)");
+            return;
+          }
           nn.importState(state);
           if (state.labels) setLabels(state.labels);
           if (state.iterations) setIterations(state.iterations);
@@ -206,7 +235,7 @@ const App: React.FC = () => {
           localStorage.setItem('ann_labels', JSON.stringify(state.labels));
           localStorage.setItem('ann_iterations', state.iterations.toString());
           localStorage.setItem('ann_loss', state.loss.toString());
-          nn.feedForward(getFeatures(currentInput));
+          nn.feedForward(getFeatures(currentInput.grid, currentInput.metadata));
           alert(t.brainLoaded);
         }
       } catch (err) {
@@ -233,7 +262,6 @@ const App: React.FC = () => {
       setLabels(updatedLabels);
       setNewLabelName('');
       setNn(new NeuralNetwork([INPUT_SIZE, 16, updatedLabels.length]));
-      // Note: trainingData is kept so the user doesn't lose their drawings
       localStorage.removeItem('ann_weights');
       localStorage.removeItem('ann_iterations');
       localStorage.removeItem('ann_loss');
@@ -246,8 +274,6 @@ const App: React.FC = () => {
   const removeLabel = (index: number) => {
     if (labels.length > 1) {
       const updatedLabels = labels.filter((_, i) => i !== index);
-      
-      // Remove samples of the deleted label and update indices for the rest
       const updatedData = trainingData
         .filter(sample => sample.label !== index)
         .map(sample => ({
@@ -268,27 +294,28 @@ const App: React.FC = () => {
   };
 
   const addTrainingSample = (labelIdx: number) => {
-    setTrainingData([...trainingData, { input: currentInput, label: labelIdx }]);
+    setTrainingData([...trainingData, { 
+      input: currentInput.grid, 
+      metadata: currentInput.metadata, 
+      label: labelIdx 
+    }]);
+    canvasRef.current?.clear();
   };
 
   const trainOnce = useCallback(() => {
     if (trainingData.length === 0) return;
     
     let totalLoss = 0;
-    
-    // Add hidden negative samples to improve confidence and reduce noise/guessing
-    // 1. Empty samples: teach the network what "silence" looks like
-    // 2. Full samples: teach the network what "noise" looks like
     const negativeSamplesCount = Math.max(1, Math.floor(trainingData.length / labels.length));
     
-    const emptyFeatures = getFeatures(new Array(GRID_SIZE * GRID_SIZE).fill(0));
-    const fullFeatures = getFeatures(new Array(GRID_SIZE * GRID_SIZE).fill(1));
+    // Normalizing negative samples to 0 size metadata
+    const emptyFeatures = getFeatures(new Array(GRID_SIZE * GRID_SIZE).fill(0), { width: 0, height: 0 });
+    const fullFeatures = getFeatures(new Array(GRID_SIZE * GRID_SIZE).fill(1), { width: CANVAS_SIZE, height: CANVAS_SIZE });
     const zeroTarget = new Array(labels.length).fill(0);
 
-    // Create a training batch with real samples and hidden negative samples
     const batch = [
       ...trainingData.map(sample => ({
-        features: getFeatures(sample.input),
+        features: getFeatures(sample.input, sample.metadata),
         target: labels.map((_, i) => i === sample.label ? 1 : 0)
       })),
       ...Array.from({ length: negativeSamplesCount }, () => ({
@@ -301,7 +328,6 @@ const App: React.FC = () => {
       }))
     ];
 
-    // Shuffle batch for better SGD
     batch.sort(() => Math.random() - 0.5);
     
     batch.forEach(sample => {
@@ -312,7 +338,7 @@ const App: React.FC = () => {
     setLoss(avgLoss);
     setLossHistory(prev => [...prev.slice(-99), avgLoss]);
     setIterations(prev => prev + 1);
-    nn.feedForward(getFeatures(currentInput));
+    nn.feedForward(getFeatures(currentInput.grid, currentInput.metadata));
   }, [trainingData, nn, currentInput, labels]);
 
   useEffect(() => {
@@ -380,7 +406,7 @@ const App: React.FC = () => {
             </div>
             
             <div className="flex flex-col md:flex-row gap-8 items-center">
-              <DrawingCanvas onDraw={handleDraw} gridSize={GRID_SIZE} lang={lang} />
+              <DrawingCanvas ref={canvasRef} onDraw={handleDraw} gridSize={GRID_SIZE} lang={lang} />
               
               <div className="flex flex-col gap-3 w-full max-w-[200px]">
                 <div className="mb-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
@@ -427,7 +453,7 @@ const App: React.FC = () => {
                     <div className="flex justify-between px-1">
                       <span className={`text-[10px] font-bold ${samplesPerLabel[idx] < 3 ? 'text-red-500' : 'text-green-600'}`}>
                         {t.categorySamples.replace('{count}', samplesPerLabel[idx].toString())}
-                        {samplesPerLabel[idx] < 3 && ' (min 3)'}
+                        {samplesPerLabel[idx] < 3 && t.minSamples}
                       </span>
                     </div>
                   </div>
